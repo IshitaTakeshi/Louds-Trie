@@ -3,5 +3,16 @@ Louds-Trie
 
 Implementation of the Trie data structure in D and Python.
 
-##CAUTION
-This implementation is slow since this is experimental.
+##How to run
+###D implementation
+```
+$cd d
+$make
+$./test
+```
+
+###Python implementation
+```
+$cd python
+$python3 test.py
+```
