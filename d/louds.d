@@ -103,7 +103,7 @@ class Trie {
 
     this(string[] words) {
         auto t = this.wordsToArrays(words);
-        this.bitArray = t[0];
+        this.bitArray = t[0];  //LOUDS bit-string
         this.labels = t[1];
         this.indexToNode = this.getRank(1);
         this.getParentIndex = this.getSelect(0);
