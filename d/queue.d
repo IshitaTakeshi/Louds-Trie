@@ -1,7 +1,7 @@
 import std.string;
 
 /**
- * The implementation of the queue data structure.
+ * The queue data structure.
  */
 class Queue(T) {
     T items[];
