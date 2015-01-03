@@ -7,10 +7,10 @@ import std.string;
 import queue;
 import lib.array;
 
-/*
-The node of the tree.
-Each node has one character as its member.
-*/
+/**
+ * The node of the tree.
+ * Each node has one character as its member.
+ */
 class Node {
     char value;
     private Node[] children;
@@ -31,11 +31,11 @@ class Node {
     }
 }
 
-/*
-This class has:
-    a function which constructs a tree by inserted words
-    a function which dumps the tree as a LOUDS bit-string
-*/
+/**
+ * This class has:
+ *     a function which constructs a tree by inserted words
+ *     a function which dumps the tree as a LOUDS bit-string
+ */
 class ArrayConstructor {
     Node tree;
     this() {
