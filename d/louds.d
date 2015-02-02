@@ -4,8 +4,8 @@ import std.typecons;
 import std.algorithm;
 import std.string;
 
-import queue;
-import lib.array;
+import queue : Queue;
+import lib.array : generateOnes;
 
 /**
  * The node of the tree.
@@ -80,7 +80,7 @@ class ArrayConstructor {
 
             // append N ones and 0
             // N is the number of children of the current node
-            int ones[] = lib.array.generateOnes(node.getNChildren());
+            int ones[] = generateOnes(node.getNChildren());
             bitArray = bitArray ~ ones ~ [0];
 
             foreach(Node child; node.children) {
@@ -97,7 +97,7 @@ class ArrayConstructor {
 }
 
 class Trie {
-    int delegate(int) indexToNode, getParentIndex;
+    int delegate(int) indexToNodeNumber, getParentIndex;
     int[] bitArray;
     char[] labels;
 
@@ -105,7 +105,7 @@ class Trie {
         auto t = this.wordsToArrays(words);
         this.bitArray = t[0];  //LOUDS bit-string
         this.labels = t[1];
-        this.indexToNode = this.getRank(1);
+        this.indexToNodeNumber = this.getRank(1);
         this.getParentIndex = this.getSelect(0);
         this.bitArray = bitArray;
         this.labels = labels;  //labels of each node
@@ -175,10 +175,10 @@ class Trie {
 
     /* If the character is found among the children of current_node,
        this method returns the node number of the child, -1 otherwise. */
-    int trace_children(int currentNode, char character) {
-        int index, node;
+    int trace_children(int currentNodeNumber, char character) {
+        int index, nodeNumber;
 
-        index = this.getParentIndex(currentNode);
+        index = this.getParentIndex(currentNodeNumber);
 
         if(index < 0) {
             //TODO throw new Exception();
@@ -187,9 +187,9 @@ class Trie {
         index += 1;
         //search brothers
         while(this.bitArray[index] == 1) {
-            node = this.indexToNode(index);
-            if(this.labels[node] == character) {
-                return node;
+            nodeNumber = this.indexToNodeNumber(index);
+            if(this.labels[nodeNumber] == character) {
+                return nodeNumber;
             }
             index += 1;
         }
@@ -199,13 +199,49 @@ class Trie {
     int search(string query) {
         /* Returns the leaf node number if the query exists in the tree
            -1 otherwise. */
-        int node = 1;
+        int nodeNumber = 1;
         foreach(c; query) {
-            node = this.trace_children(node, c);
-            if(node < 0) {
+            nodeNumber = this.trace_children(nodeNumber, c);
+            if(nodeNumber < 0) {
                 return -1;
             }
         }
-        return node;
+        return nodeNumber;
     }
+}
+
+unittest {
+    string[] words = ["an", "i", "of", "one", "our", "out"];
+    int[] answers = [5, 3, 6, 9, 10, 11];
+
+    Trie trie = new Trie(words);
+    foreach(int i, string word; words) {
+        int result = trie.search(word);
+        writefln("word: %3s  result: %2s  should return: %2s",
+                 word, result, answers[i]);
+        assert(result == answers[i]);
+        assert(result > 0);
+    }
+
+    //"hello doesn't exist in the dictionary.
+    //should return -1
+    assert(trie.search("hello") == -1);
+}
+
+unittest {
+    string[] words = ["the", "then", "they"];
+    int[] answers = [4, 5, 6];
+
+    Trie trie = new Trie(words);
+    foreach(int i, string word; words) {
+        int result = trie.search(word);
+        writefln("word: %3s  result: %2s  should return: %2s",
+                 word, result, answers[i]);
+        assert(result == answers[i]);
+        assert(result > 0);
+    }
+
+    //"hello doesn't exist in the dictionary.
+    //should return -1
+    assert(trie.search("hello") == -1);
 }
