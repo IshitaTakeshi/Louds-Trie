@@ -1,4 +1,3 @@
-import std.stdio;
 import std.functional;
 import std.typecons;
 import std.algorithm;
@@ -38,17 +37,27 @@ class Node {
  */
 class ArrayConstructor {
     Node tree;
-    this() {
+    this(string[] words) {
         this.tree = new Node(' ');  //make root
+        words = this.lower(words);
+        foreach(string word; words) {
+            this.build(this.tree, word, 0);
+        }
     }
 
-    /* Add a word to the tree. */
-    void add(string word) {
-        this.build(this.tree, word, 0);
+    /* Convert words to lower case element-wise and sort them in alphabetical
+     * order.*/
+    string[] lower(string[] words) {
+        foreach(ref string word; words) {
+            word = toLower(word);
+        }
+        //sort words in alphabetical order
+        sort!("a < b", SwapStrategy.stable)(words);
+        return words;
     }
 
     /* Build a tree. */
-    void build(Node node, string word, int depth) {
+    private void build(Node node, string word, int depth) {
         if(depth == word.length) {
             return;
         }
@@ -68,6 +77,7 @@ class ArrayConstructor {
 
     /* Dumps a LOUDS bit-string. */
     Tuple!(int[], char[]) dump() {
+        //set the root node
         int bitArray[] = [1, 0];
         char labels[] = ['-'];
 
@@ -96,6 +106,47 @@ class ArrayConstructor {
     }
 }
 
+
+unittest {
+    string[] words = ["an", "i", "of", "one", "our", "out"];
+
+    auto constructor = new ArrayConstructor(words);
+    auto t = constructor.dump();
+    int[] bitstring = t[0];
+
+    assert(
+        bitstring ==
+        [1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0]);
+}
+
+
+//Ensure the same bit string generated if the word order is randomized.
+unittest {
+    string[] words = ["our", "out", "i", "an", "of", "one"];
+
+    auto constructor = new ArrayConstructor(words);
+    auto t = constructor.dump();
+    int[] bitstring = t[0];
+
+    assert(
+        bitstring ==
+        [1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0]);
+}
+
+
+unittest {
+    string[] words = ["the", "then", "they"];
+
+    auto constructor = new ArrayConstructor(words);
+    auto t = constructor.dump();
+    int[] bitstring = t[0];
+
+    assert(
+        bitstring ==
+        [1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0]);
+}
+
+
 class Trie {
     int delegate(int) indexToNodeNumber, getParentIndex;
     int[] bitArray;
@@ -111,25 +162,10 @@ class Trie {
         this.labels = labels;  //labels of each node
     }
 
-    /* Convert words to lower case element-wise and sort them in alphabetical
-     * order.*/
-    string[] lower(string[] words) {
-        foreach(ref string word; words) {
-            word = toLower(word);
-        }
-        //sort words in alphabetical order
-        sort!("a < b", SwapStrategy.stable)(words);
-        return words;
-    }
-
     /* Convert words to a LOUDS bit-string. */
     Tuple!(int[], char[]) wordsToArrays(string[] words) {
-        words = this.lower(words);
 
-        auto constructor = new ArrayConstructor();
-        foreach(string word; words) {
-            constructor.add(word);
-        }
+        auto constructor = new ArrayConstructor(words);
         return constructor.dump();
     }
 
@@ -196,9 +232,9 @@ class Trie {
         return -1;
     }
 
+    /* Returns the leaf node number if the query exists in the tree
+       -1 otherwise. */
     int search(string query) {
-        /* Returns the leaf node number if the query exists in the tree
-           -1 otherwise. */
         int nodeNumber = 1;
         foreach(c; query) {
             nodeNumber = this.trace_children(nodeNumber, c);
@@ -210,6 +246,7 @@ class Trie {
     }
 }
 
+
 unittest {
     string[] words = ["an", "i", "of", "one", "our", "out"];
     int[] answers = [5, 3, 6, 9, 10, 11];
@@ -217,8 +254,6 @@ unittest {
     Trie trie = new Trie(words);
     foreach(int i, string word; words) {
         int result = trie.search(word);
-        writefln("word: %3s  result: %2s  should return: %2s",
-                 word, result, answers[i]);
         assert(result == answers[i]);
         assert(result > 0);
     }
@@ -228,6 +263,7 @@ unittest {
     assert(trie.search("hello") == -1);
 }
 
+
 unittest {
     string[] words = ["the", "then", "they"];
     int[] answers = [4, 5, 6];
@@ -235,8 +271,6 @@ unittest {
     Trie trie = new Trie(words);
     foreach(int i, string word; words) {
         int result = trie.search(word);
-        writefln("word: %3s  result: %2s  should return: %2s",
-                 word, result, answers[i]);
         assert(result == answers[i]);
         assert(result > 0);
     }
