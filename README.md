@@ -3,15 +3,14 @@ Louds-Trie
 
 Implementation of the Trie data structure in D and Python.
 
-##How to run
-###D implementation
+##Test D implementation
 ```
 $cd d
-$make
+$dmd test.d louds.d bitarray.d tools/exception.d tools/random.d queue.d -unittest
 $./test
 ```
 
-###Python implementation
+##Run Python implementation
 ```
 $cd python
 $python3 test.py
