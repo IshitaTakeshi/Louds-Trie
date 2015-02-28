@@ -4,19 +4,20 @@ import std.algorithm;
 import std.string;
 
 import queue : Queue;
-import lib.array : generateOnes;
+import bitarray: SuccinctBitVector;
+import tools.exception : ValueError, KeyError;
 
 /**
  * The node of the tree.
  * Each node has one character as its member.
  */
 class Node {
-    char value;
+    char label;
     private Node[] children;
     bool visited;
 
-    this(char value) {
-        this.value = value;
+    this(char label) {
+        this.label = label;
         this.children = [];
         this.visited = false;
     }
@@ -36,9 +37,10 @@ class Node {
  *     a function which dumps the tree as a LOUDS bit-string
  */
 class ArrayConstructor {
-    Node tree;
+    private Node tree;
     this(string[] words) {
         this.tree = new Node(' ');  //make root
+
         words = this.lower(words);
         foreach(string word; words) {
             this.build(this.tree, word, 0);
@@ -57,13 +59,13 @@ class ArrayConstructor {
     }
 
     /* Build a tree. */
-    private void build(Node node, string word, int depth) {
+    private void build(Node node, string word, ulong depth) {
         if(depth == word.length) {
             return;
         }
 
         foreach(Node child; node.children) {
-            if(child.value == word[depth]) {
+            if(child.label == word[depth]) {
                 this.build(child, word, depth+1);
                 return;
             }
@@ -76,22 +78,29 @@ class ArrayConstructor {
     }
 
     /* Dumps a LOUDS bit-string. */
-    Tuple!(int[], char[]) dump() {
+    //TODO add comments
+    Tuple!(SuccinctBitVector, string) dump() {
+        SuccinctBitVector bitvector = new SuccinctBitVector();
+        string labels;
+
         //set the root node
-        int bitArray[] = [1, 0];
-        char labels[] = ['-'];
+        bitvector.push(1);
+        bitvector.push(0);
+        labels = " ";
 
         Queue!Node queue = new Queue!Node();
         queue.append(this.tree);
 
         while(queue.size() != 0) {
             Node node = queue.pop();
-            labels ~= node.value;
+            labels ~= node.label;
 
             // append N ones and 0
             // N is the number of children of the current node
-            int ones[] = generateOnes(node.getNChildren());
-            bitArray = bitArray ~ ones ~ [0];
+            for(auto i = 0; i < node.getNChildren(); i++) {
+                bitvector.push(1);
+            }
+            bitvector.push(0);
 
             foreach(Node child; node.children) {
                 if(child.visited) {
@@ -102,21 +111,22 @@ class ArrayConstructor {
                 queue.append(child);
             }
         }
-        return tuple(bitArray, labels);
+
+        bitvector.build();
+        return tuple(bitvector, labels);
     }
 }
 
-
+//smoke test
 unittest {
     string[] words = ["an", "i", "of", "one", "our", "out"];
 
     auto constructor = new ArrayConstructor(words);
     auto t = constructor.dump();
-    int[] bitstring = t[0];
+    SuccinctBitVector bitvector = t[0];
 
-    assert(
-        bitstring ==
-        [1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0]);
+    //the length of the bitvector should be a multiple of 8
+    assert(bitvector.toString() == "101110100111000101100000");
 }
 
 
@@ -126,11 +136,10 @@ unittest {
 
     auto constructor = new ArrayConstructor(words);
     auto t = constructor.dump();
-    int[] bitstring = t[0];
+    SuccinctBitVector bitvector = t[0];
 
-    assert(
-        bitstring ==
-        [1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0]);
+    //the length of the bitvector should be a multiple of 8
+    assert(bitvector.toString() == "101110100111000101100000");
 }
 
 
@@ -139,128 +148,82 @@ unittest {
 
     auto constructor = new ArrayConstructor(words);
     auto t = constructor.dump();
-    int[] bitstring = t[0];
-
-    assert(
-        bitstring ==
-        [1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0]);
+    SuccinctBitVector bitvector = t[0];
+    assert(bitvector.toString() == "1010101011000000");
 }
 
 
 class Trie {
-    int delegate(int) indexToNodeNumber, getParentIndex;
-    int[] bitArray;
-    char[] labels;
+    private SuccinctBitVector bitvector;
+    private string labels;
 
     this(string[] words) {
-        auto t = this.wordsToArrays(words);
-        this.bitArray = t[0];  //LOUDS bit-string
-        this.labels = t[1];
-        this.indexToNodeNumber = this.getRank(1);
-        this.getParentIndex = this.getSelect(0);
-        this.bitArray = bitArray;
-        this.labels = labels;  //labels of each node
+        //convert words to a LOUDS bit-string
+        auto t = new ArrayConstructor(words).dump();
+        this.bitvector = t[0];  //LOUDS bit-string
+        this.labels = t[1]; //labels of each node
     }
 
-    /* Convert words to a LOUDS bit-string. */
-    Tuple!(int[], char[]) wordsToArrays(string[] words) {
+    /*
+    Return the node number of the child if exists.
+     */
+    ulong traceChildren(ulong current_node_number, char character) {
+        ulong node_number;
 
-        auto constructor = new ArrayConstructor(words);
-        return constructor.dump();
-    }
+        //get the corresponding index of the node number
+        ulong index = this.bitvector.select0(current_node_number-1);
 
-    /* Returns the location of nth targetBit. */
-    int select(int n, int targetBit) {
-        int i;
-        for(i = 0; i < bitArray.length; i++) {
-            if(bitArray[i] == targetBit) {
-                n -= 1;
-            }
-            if(n == 0) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /* Returns the number of target bits from head to the position in
-       the bit string. */
-    int rank(int position, int targetBit) {
-        int n = 0;
-        foreach(bit; bitArray[0..position+1]) {
-            if(bit == targetBit) {
-                n += 1;
-            }
-        }
-        return n;
-    }
-
-    int delegate(int) getSelect(int targetBit) {
-        int select_(int n) {
-            return this.select(n, targetBit);
-        }
-        return &select_;
-    }
-
-    int delegate(int) getRank(int targetBit) {
-        int rank_(int position) {
-            return this.rank(position, targetBit);
-        }
-        return &rank_;
-    }
-
-    /* If the character is found among the children of current_node,
-       this method returns the node number of the child, -1 otherwise. */
-    int trace_children(int currentNodeNumber, char character) {
-        int index, nodeNumber;
-
-        index = this.getParentIndex(currentNodeNumber);
-
-        if(index < 0) {
-            //TODO throw new Exception();
-            return -1;
-        }
-        index += 1;
+        //numbers next to the index of the node mean the node's children
         //search brothers
-        while(this.bitArray[index] == 1) {
-            nodeNumber = this.indexToNodeNumber(index);
-            if(this.labels[nodeNumber] == character) {
-                return nodeNumber;
+        index += 1;
+        while(this.bitvector.get(index) == 1) {
+            node_number = this.bitvector.rank1(index);
+            if(this.labels[node_number] == character) {
+                return node_number;
             }
             index += 1;
         }
-        return -1;
+
+        throw new ValueError("Child not found");
     }
 
-    /* Returns the leaf node number if the query exists in the tree
-       -1 otherwise. */
-    int search(string query) {
-        int nodeNumber = 1;
-        foreach(c; query) {
-            nodeNumber = this.trace_children(nodeNumber, c);
-            if(nodeNumber < 0) {
-                return -1;
+    /*
+     * Returns the leaf node number if the query exists in the tree and
+     * throws KeyError if not exist.
+     */
+    ulong search(string query) {
+        ulong node_number = 1;
+        foreach(char character; query) {
+            try {
+                node_number = this.traceChildren(node_number, character);
+            } catch(ValueError e) {
+                throw new KeyError(query);
             }
         }
-        return nodeNumber;
+        return node_number;
     }
 }
 
 
+//smoke test
 unittest {
     string[] words = ["an", "i", "of", "one", "our", "out"];
     int[] answers = [5, 3, 6, 9, 10, 11];
 
     Trie trie = new Trie(words);
-    foreach(int i, string word; words) {
-        int result = trie.search(word);
+    foreach(ulong i, string word; words) {
+        ulong result = trie.search(word);
         assert(result == answers[i]);
-        assert(result > 0);
     }
 
-    //"hello doesn't exist in the dictionary.
-    //should return -1
-    assert(trie.search("hello") == -1);
+    //"hello" doesn't exist in the dictionary.
+    bool error_thrown = false;
+    try {
+        trie.search("hello");
+    } catch(KeyError e) {
+        error_thrown = true;
+    }
+    assert(error_thrown);
 }
 
 
@@ -269,13 +232,16 @@ unittest {
     int[] answers = [4, 5, 6];
 
     Trie trie = new Trie(words);
-    foreach(int i, string word; words) {
-        int result = trie.search(word);
+    foreach(ulong i, string word; words) {
+        ulong result = trie.search(word);
         assert(result == answers[i]);
-        assert(result > 0);
     }
 
-    //"hello doesn't exist in the dictionary.
-    //should return -1
-    assert(trie.search("hello") == -1);
+    //"hello" doesn't exist in the dictionary.
+    bool error_thrown = false;
+    try {
+        trie.search("hello");
+    } catch(KeyError e) {
+        error_thrown = true;
+    }
 }

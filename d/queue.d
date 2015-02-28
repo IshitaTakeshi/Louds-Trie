@@ -3,6 +3,7 @@ import std.string;
 /**
  * The queue data structure.
  */
+//TODO add tests
 class Queue(T) {
     T items[];
 
@@ -18,7 +19,7 @@ class Queue(T) {
      */
     T pop() {
         if(this.isempty()) {
-            throw new Exception("The queue is empty.");
+            throw new Error("The queue is empty.");
         }
         T item = items[0];
         this.items = this.items[1..$];

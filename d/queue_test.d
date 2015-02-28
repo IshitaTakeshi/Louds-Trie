@@ -22,7 +22,7 @@ int main() {
 
     try {
         item = queue.pop();
-    } catch(Exception e) {
+    } catch(Error e) {
         writeln(e.msg);
     }
 
