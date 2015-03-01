@@ -78,8 +78,8 @@ class ArrayConstructor {
     }
 
     /* Dumps a LOUDS bit-string. */
-    //TODO add comments
     Tuple!(SuccinctBitVector, string) dump() {
+        //construct a bit vector by Breadth-first search
         SuccinctBitVector bitvector = new SuccinctBitVector();
         string labels;
 
@@ -116,6 +116,7 @@ class ArrayConstructor {
         return tuple(bitvector, labels);
     }
 }
+
 
 //smoke test
 unittest {
@@ -207,41 +208,30 @@ class Trie {
 
 //smoke test
 unittest {
-    string[] words = ["an", "i", "of", "one", "our", "out"];
-    int[] answers = [5, 3, 6, 9, 10, 11];
+    void testKeysFound(string[] keys, int[] answers,
+                       string[] words_not_in_keys) {
+        Trie trie = new Trie(keys);
+        foreach(ulong i, string key; keys) {
+            //the set of keys in the dictionary should be found
+            ulong result = trie.search(key);
+            assert(result == answers[i]);
+        }
 
-    Trie trie = new Trie(words);
-    foreach(ulong i, string word; words) {
-        ulong result = trie.search(word);
-        assert(result == answers[i]);
+        //KeyError should be thrown if the key is not found
+        foreach(string word; words_not_in_keys) {
+            bool error_thrown = false;
+            try {
+                trie.search(word);
+            } catch(KeyError e) {
+                error_thrown = true;
+            }
+            assert(error_thrown);
+        }
     }
 
-    //"hello" doesn't exist in the dictionary.
-    bool error_thrown = false;
-    try {
-        trie.search("hello");
-    } catch(KeyError e) {
-        error_thrown = true;
-    }
-    assert(error_thrown);
-}
-
-
-unittest {
-    string[] words = ["the", "then", "they"];
-    int[] answers = [4, 5, 6];
-
-    Trie trie = new Trie(words);
-    foreach(ulong i, string word; words) {
-        ulong result = trie.search(word);
-        assert(result == answers[i]);
-    }
-
-    //"hello" doesn't exist in the dictionary.
-    bool error_thrown = false;
-    try {
-        trie.search("hello");
-    } catch(KeyError e) {
-        error_thrown = true;
-    }
+    testKeysFound(["an", "i", "of", "one", "our", "out"],
+                  [5, 3, 6, 9, 10, 11],
+                  ["hello", "ant", "ones", "ours"]);
+    testKeysFound(["the", "then", "they"], [4, 5, 6],
+                  ["hi", "thus", "that", "them"]);
 }

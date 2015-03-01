@@ -1,4 +1,5 @@
 import std.conv : to;
+import tools.exception : ValueError;
 
 /*
 Count 1 bits in x.
@@ -19,6 +20,20 @@ ulong countOneBits(int x, ulong n_bits) {
 }
 
 
+unittest {
+    uint[] bits = [0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1];
+    SuccinctBitVector bitvector = new SuccinctBitVector();
+    foreach(uint bit; bits) {
+        bitvector.push(bit);
+    }
+
+    assert(countOneBits(bitvector.bitarray[0], 2) == 1);
+    assert(countOneBits(bitvector.bitarray[0], 3) == 2);
+    assert(countOneBits(bitvector.bitarray[1], 2) == 1);
+    assert(countOneBits(bitvector.bitarray[1], 8) == 2);
+}
+
+
 class BitArray {
     private int[] bitarray;
     private ulong length;  //the length of the bitarray
@@ -30,10 +45,13 @@ class BitArray {
     /*
        Push one bit to the bitarray.
      */
-    void push(uint bit) {
-        //TODO make sure the bit is 0 or 1
-        //in {
-        //}
+    void push(uint bit)
+    in {
+        if(!(bit == 0 || bit == 1)) {
+            throw new ValueError("Bit must be 0 or 1.");
+        }
+    }
+    body {
         uint shift = this.length % 8;
         //append 0 to expand bitarray.
         if(shift == 0) {
@@ -43,20 +61,65 @@ class BitArray {
         this.bitarray[$-1] |= (bit & 1) << shift;
         this.length += 1;
     }
+    unittest {
+        SuccinctBitVector bitvector = new SuccinctBitVector();
+
+        bool error_thrown = false;
+        try {
+            bitvector.push(2);
+        } catch(ValueError e) {
+            error_thrown = true;
+        }
+        assert(error_thrown);
+    }
 
     /*
     Get bit at the specified position.
     */
-    uint get(ulong position) {
-        //TODO
-        //in {
-        //    assert(position >= this.length);
-        //}
+    uint get(ulong position)
+    in {
+        if(position >= this.length) {
+            throw new ValueError("The position is out of range.");
+        }
+    }
+    body {
         ulong shift = position % 8;
         return 0x1 & (this.bitarray[position/8] >> shift);
     }
+    unittest {
+        import std.random : uniform;
+        import tools.random : randomArray;
 
-    private string bitArrayToString(int bit) {
+        ulong size = 20;
+        uint[] bits = cast(uint[])randomArray(0, 2, size);
+        SuccinctBitVector bitvector = new SuccinctBitVector();
+        foreach(uint bit; bits) {
+            bitvector.push(bit);
+        }
+
+        foreach(ulong i, uint bit; bits) {
+            assert(bitvector.get(i) == bit);
+        }
+    }
+    unittest {
+        uint bits[20] = 0;
+
+        SuccinctBitVector bitvector = new SuccinctBitVector();
+        foreach(uint bit; bits) {
+            bitvector.push(bit);
+        }
+        bitvector.build();
+
+        bool error_thrown = false;
+        try {
+            bitvector.get(20);
+        } catch(ValueError e) {
+            error_thrown = true;
+        }
+        assert(error_thrown);
+    }
+
+    private string bitToString(int bit) {
         string bits = "";
 
         for(int i = 0; i < 8; i++) {
@@ -74,7 +137,7 @@ class BitArray {
         string bits = "";
 
         foreach(int e; bitarray) {
-            bits ~= bitArrayToString(e);
+            bits ~= bitToString(e);
         }
         return bits;
     }
@@ -84,23 +147,6 @@ class BitArray {
      */
     string dump() {
         return to!string(this.bitarray);
-    }
-}
-
-
-unittest {
-    import std.random : uniform;
-    import tools.random : randomArray;
-
-    ulong size = 20;
-    uint[] bits = cast(uint[])randomArray(0, 2, size);
-    SuccinctBitVector bitvector = new SuccinctBitVector();
-    foreach(uint bit; bits) {
-        bitvector.push(bit);
-    }
-
-    foreach(ulong i, uint bit; bits) {
-        assert(bitvector.get(i) == bit);
     }
 }
 
@@ -128,20 +174,6 @@ class SuccinctBitVector : BitArray {
         this.fillLargeBlocks();
         this.fillSmallBlocks();
         this.built = true;
-    }
-
-    ///
-    unittest {
-        uint[] bits = [0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1];
-        SuccinctBitVector bitvector = new SuccinctBitVector();
-        foreach(uint bit; bits) {
-            bitvector.push(bit);
-        }
-
-        assert(countOneBits(bitvector.bitarray[0], 2) == 1);
-        assert(countOneBits(bitvector.bitarray[0], 3) == 2);
-        assert(countOneBits(bitvector.bitarray[1], 2) == 1);
-        assert(countOneBits(bitvector.bitarray[1], 8) == 2);
     }
 
     private ulong countOneBitsInBlock(ulong position) {
@@ -191,8 +223,11 @@ class SuccinctBitVector : BitArray {
     Parameters:
     position = The end point of a counted range in the bitarray.
      */
-    ulong rank0(ulong position) {
+    ulong rank0(ulong position)
+    in {
         assert(this.built);
+    }
+    body {
         return position+1-this.rank1(position);
     }
 
@@ -228,12 +263,9 @@ class SuccinctBitVector : BitArray {
     The basic function of select.
     */
     ulong selectBase(ulong delegate(ulong) rank, ulong n)
-    in {
-    }
     out(location) {
         //if select(n) doesn't exist
         if(location >= this.length) {
-            import tools.exception : ValueError;
             import std.string : format;
             throw new ValueError(format("select(%d) doesn't exist.", n));
         }
@@ -306,11 +338,10 @@ unittest {
     }
 }
 
-/*
+
 //boundary value analysis
 unittest {
-    uint bits[10];
-    bits[0..$] = 0;
+    uint bits[10] = 0;
 
     SuccinctBitVector bitvector = new SuccinctBitVector();
     foreach(uint bit; bits) {
@@ -322,12 +353,10 @@ unittest {
     assert(bitvector.rank1(bits.length-1) == 0);
 
 }
-*/
 
 
 unittest {
-    uint bits[10];
-    bits[0..$] = 0;
+    uint bits[10] = 0;
 
     SuccinctBitVector bitvector = new SuccinctBitVector();
     foreach(uint bit; bits) {
@@ -345,7 +374,7 @@ unittest {
     assert(error_thrown);
 }
 
-/*
+
 //random test of select and rank
 unittest {
     import std.random : uniform;
@@ -374,7 +403,7 @@ unittest {
         return n;
     }
 
-    void test_random() {
+    void testRandom() {
         ulong size = uniform(10, 1000);
         uint bits[] = cast(uint[])randomArray(0, 2, size);
 
@@ -420,7 +449,6 @@ unittest {
     }
 
     for(auto i = 0; i < 200; i++) {
-        test_random();
+        testRandom();
     }
 }
-*/
