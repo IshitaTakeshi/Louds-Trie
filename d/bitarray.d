@@ -1,5 +1,5 @@
 import std.conv : to;
-import tools.exception : ValueError;
+import lib.exception : ValueError;
 
 /*
 Count 1 bits in x.
@@ -7,7 +7,7 @@ Count 1 bits in x.
 Params:
 n_bits = The size of the counted range in bits. The maximum value is 8.
  */
-ulong countOneBits(int x, ulong n_bits) {
+uint countOneBits(int x, uint n_bits) {
     assert(n_bits <= 8);
     x = x & ((1 << n_bits) - 1); //bitmask
     x = x - ((x >> 1) & 0x55555555);
@@ -36,7 +36,7 @@ unittest {
 
 class BitArray {
     private int[] bitarray;
-    private ulong length;  //the length of the bitarray
+    private uint length;  //the length of the bitarray
 
     this() {
         this.length = 0;
@@ -76,28 +76,28 @@ class BitArray {
     /*
     Get bit at the specified position.
     */
-    uint get(ulong position)
+    uint get(uint position)
     in {
         if(position >= this.length) {
             throw new ValueError("The position is out of range.");
         }
     }
     body {
-        ulong shift = position % 8;
+        uint shift = position % 8;
         return 0x1 & (this.bitarray[position/8] >> shift);
     }
     unittest {
         import std.random : uniform;
-        import tools.random : randomArray;
+        import lib.random.random : randomArray;
 
-        ulong size = 20;
+        uint size = 20;
         uint[] bits = cast(uint[])randomArray(0, 2, size);
         SuccinctBitVector bitvector = new SuccinctBitVector();
         foreach(uint bit; bits) {
             bitvector.push(bit);
         }
 
-        foreach(ulong i, uint bit; bits) {
+        foreach(uint i, uint bit; bits) {
             assert(bitvector.get(i) == bit);
         }
     }
@@ -156,13 +156,13 @@ class BitArray {
  */
 class SuccinctBitVector : BitArray {
     //HACK tune the size
-    private static immutable ulong large_block_size = 1 << 8;
+    private static immutable uint large_block_size = 1 << 8;
     //the size of a small block is the size of a block in bits.
-    private static immutable ulong small_block_size = 8;
-    private ulong n_large_blocks;
-    private ulong n_small_blocks;
-    private ulong[] large_blocks;
-    private ulong[] small_blocks;
+    private static immutable uint small_block_size = 8;
+    private uint n_large_blocks;
+    private uint n_small_blocks;
+    private uint[] large_blocks;
+    private uint[] small_blocks;
     private bool built = false;
 
     void build() {
@@ -176,10 +176,10 @@ class SuccinctBitVector : BitArray {
         this.built = true;
     }
 
-    private ulong countOneBitsInBlock(ulong position) {
+    private uint countOneBitsInBlock(uint position) {
         assert(position % 8 == 0);
 
-        ulong n_bits;
+        uint n_bits;
         foreach(int block; this.bitarray[0..position/8]) {
             n_bits += countOneBits(block, 8);
         }
@@ -200,18 +200,18 @@ class SuccinctBitVector : BitArray {
     }
 
     void fillLargeBlocks() {
-        this.large_blocks = new ulong[this.n_large_blocks];
-        for(ulong i = 0; i < this.n_large_blocks; i++) {
-            ulong t = i * this.large_block_size;
+        this.large_blocks = new uint[this.n_large_blocks];
+        for(uint i = 0; i < this.n_large_blocks; i++) {
+            uint t = i * this.large_block_size;
             this.large_blocks[i] = this.countOneBitsInBlock(t);
         }
     }
 
     void fillSmallBlocks() {
-        this.small_blocks = new ulong[this.n_small_blocks];
-        for(ulong i = 0; i < this.n_small_blocks; i++) {
-            ulong s = i * this.small_block_size;
-            ulong t = s / this.large_block_size;
+        this.small_blocks = new uint[this.n_small_blocks];
+        for(uint i = 0; i < this.n_small_blocks; i++) {
+            uint s = i * this.small_block_size;
+            uint t = s / this.large_block_size;
             this.small_blocks[i] = this.countOneBitsInBlock(s);
             this.small_blocks[i] -= this.large_blocks[t];
         }
@@ -223,7 +223,7 @@ class SuccinctBitVector : BitArray {
     Parameters:
     position = The end point of a counted range in the bitarray.
      */
-    ulong rank0(ulong position)
+    uint rank0(uint position)
     in {
         assert(this.built);
     }
@@ -237,7 +237,7 @@ class SuccinctBitVector : BitArray {
     Parameters:
     position = The end point of a counted range in the bitarray.
      */
-    ulong rank1(ulong position)
+    uint rank1(uint position)
     in {
         assert(this.built);
     }
@@ -245,10 +245,10 @@ class SuccinctBitVector : BitArray {
         assert(n_bits <= this.length);
     }
     body {
-        ulong s = position/this.large_block_size;
-        ulong t = position/this.small_block_size;
-        ulong u = t*this.small_block_size;
-        ulong n_bits = 0;
+        uint s = position/this.large_block_size;
+        uint t = position/this.small_block_size;
+        uint u = t*this.small_block_size;
+        uint n_bits = 0;
 
         n_bits += this.large_blocks[s];
         n_bits += this.small_blocks[t];
@@ -262,7 +262,7 @@ class SuccinctBitVector : BitArray {
     /*
     The basic function of select.
     */
-    ulong selectBase(ulong delegate(ulong) rank, ulong n)
+    uint selectBase(uint delegate(uint) rank, uint n)
     out(location) {
         //if select(n) doesn't exist
         if(location >= this.length) {
@@ -273,13 +273,13 @@ class SuccinctBitVector : BitArray {
     body {
         //search the location by Binary Search.
         //rank(select(i)) = i+1
-        long lower = 0;
-        long upper = this.length - 1;
-        long middle;
+        int lower = 0;
+        int upper = this.length - 1;
+        int middle;
 
         while(lower <= upper) {
             middle = lower + (upper-lower) / 2;
-            long r = rank(middle);
+            int r = rank(middle);
             if(r < n+1) {
                 lower = middle+1;
             } else if(r == n+1) {
@@ -298,15 +298,17 @@ class SuccinctBitVector : BitArray {
 
     /*
     Return the location of the (n+1)th '0' bit in the bitarray.
+    Raise ValueError if select0(n) doesn't exist.
      */
-    ulong select0(ulong n) {
+    uint select0(uint n) {
         return this.selectBase(&this.rank0, n);
     }
 
     /*
     Return the location of the (n+1)th '1' bit in the bitarray.
+    Raise ValueError if select1(n) doesn't exist.
      */
-    ulong select1(ulong n) {
+    uint select1(uint n) {
         return this.selectBase(&this.rank1, n);
     }
 }
@@ -322,15 +324,15 @@ unittest {
     }
     bitvector.build();
 
-    ulong rank0_answers[] = [1, 1, 2, 2, 3, 4, 5, 5, 5, 5];
-    ulong rank1_answers[] = [0, 1, 1, 2, 2, 2, 2, 3, 4, 5];
+    uint rank0_answers[] = [1, 1, 2, 2, 3, 4, 5, 5, 5, 5];
+    uint rank1_answers[] = [0, 1, 1, 2, 2, 2, 2, 3, 4, 5];
     for(auto i = 0; i < 10; i++) {
         assert(bitvector.rank0(i) == rank0_answers[i]);
         assert(bitvector.rank1(i) == rank1_answers[i]);
     }
 
-    ulong select0_answers[] = [0, 2, 4, 5, 6];
-    ulong select1_answers[] = [1, 3, 7, 8, 9];
+    uint select0_answers[] = [0, 2, 4, 5, 6];
+    uint select1_answers[] = [1, 3, 7, 8, 9];
 
     for(auto i = 0; i < 5; i++) {
         assert(bitvector.select0(i) == select0_answers[i]);
@@ -378,11 +380,11 @@ unittest {
 //random test of select and rank
 unittest {
     import std.random : uniform;
-    import tools.random : randomArray;
+    import lib.random.random : randomArray;
 
-    ulong select(uint bits[], ulong n, uint targetBit) {
-        ulong n_appearances = 0;
-        for(ulong i = 0; i < bits.length; i++) {
+    uint select(uint bits[], uint n, uint targetBit) {
+        uint n_appearances = 0;
+        for(uint i = 0; i < bits.length; i++) {
             if(bits[i] == targetBit) {
                 n_appearances += 1;
                 if(n_appearances == n+1) {
@@ -390,11 +392,11 @@ unittest {
                 }
             }
         }
-        return bits.length;
+        return cast(uint)bits.length;
     }
 
-    ulong rank(uint bits[], ulong position, uint targetBit) {
-        ulong n = 0;
+    uint rank(uint bits[], uint position, uint targetBit) {
+        uint n = 0;
         foreach(uint bit; bits[0..position+1]) {
             if(bit == targetBit) {
                 n += 1;
@@ -404,7 +406,7 @@ unittest {
     }
 
     void testRandom() {
-        ulong size = uniform(10, 1000);
+        uint size = uniform(10, 1000);
         uint bits[] = cast(uint[])randomArray(0, 2, size);
 
         SuccinctBitVector bitvector = new SuccinctBitVector();
@@ -413,11 +415,11 @@ unittest {
         }
         bitvector.build();
 
-        ulong position = uniform(0, size);
+        uint position = uniform(0, size);
         assert(bitvector.rank0(position) == rank(bits, position, 0));
         assert(bitvector.rank1(position) == rank(bits, position, 1));
 
-        ulong n = uniform(0, size);
+        uint n = uniform(0, size);
 
         if(n < rank(bits, size-1, 0)) {
             assert(bitvector.select0(n) == select(bits, n, 0));

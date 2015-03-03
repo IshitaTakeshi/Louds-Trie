@@ -6,7 +6,7 @@ Implementation of the Trie data structure in D and Python.
 ##Test D implementation
 ```
 $cd d
-$dmd test.d louds.d bitarray.d tools/exception.d tools/random.d queue.d -unittest
+$dmd test.d bitarray.d lib/exception.d lib/random/random.d lib/random/string.d queue.d trie.d -unittest
 $./test
 ```
 
