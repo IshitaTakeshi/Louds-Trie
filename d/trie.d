@@ -1,5 +1,4 @@
-import std.functional;
-import std.typecons;
+import std.typecons : tuple, Tuple;
 import std.algorithm : reverse, sort, SwapStrategy;
 import queue : Queue;
 import bitarray : SuccinctBitVector;
